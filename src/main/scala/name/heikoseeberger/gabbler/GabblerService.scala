@@ -30,6 +30,9 @@ class GabblerService(gabblerHub: ActorRef) extends Actor with HttpServiceActor {
   def receive = runRoute(
     // format: OFF
     authenticate(BasicAuth("gabbler"))(user =>
+      path("")(
+        getFromResource(s"web/index.html")
+      ) ~
       pathPrefix("api")(
         pathPrefix("messages")(
           get(requestContext =>
@@ -42,6 +45,9 @@ class GabblerService(gabblerHub: ActorRef) extends Actor with HttpServiceActor {
             }
           )
         )
+      ) ~
+      path(Rest)(path =>
+        getFromResource(s"web/$path")
       )
     )
   // format: ON
