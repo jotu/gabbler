@@ -22,7 +22,7 @@ import spray.http.StatusCodes
 import spray.httpx.SprayJsonSupport
 import spray.routing.RequestContext
 
-class Gabbler(name: String, timeout: Duration) extends Actor with ActorLogging {
+class Gabbler(username: String, timeout: Duration) extends Actor with ActorLogging {
 
   import GabblerHub._
   import SprayJsonSupport._
@@ -48,7 +48,7 @@ class Gabbler(name: String, timeout: Duration) extends Actor with ActorLogging {
         storedRequestContext = None
       }
     case ReceiveTimeout =>
-      context.parent ! GabblerAskingToStop(name)
+      context.parent ! GabblerAskingToStop(username)
     case GabblerConfirmedToStop =>
       context.stop(self)
   }
@@ -56,7 +56,7 @@ class Gabbler(name: String, timeout: Duration) extends Actor with ActorLogging {
   override def postStop() = noContent()
 
   def completeWithMessages(requestContext: RequestContext) = {
-    log.debug("Sending {} messages to {}", messages.size, name)
+    log.debug("Sending {} messages to {}", messages.size, username)
     requestContext.complete(messages)
     messages = Nil
   }

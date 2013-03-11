@@ -23,7 +23,7 @@ import spray.routing.RequestContext
 
 object GabblerHub {
 
-  case class GetMessages(name: String, requestContext: RequestContext)
+  case class GetMessages(username: String, requestContext: RequestContext)
 
   object InboundMessage extends DefaultJsonProtocol {
     implicit val format = jsonFormat1(apply)
@@ -35,9 +35,9 @@ object GabblerHub {
     implicit val format = jsonFormat2(apply)
   }
 
-  case class Message(name: String, text: String)
+  case class Message(username: String, text: String)
 
-  case class GabblerAskingToStop(name: String)
+  case class GabblerAskingToStop(username: String)
 
   case object GabblerConfirmedToStop
 }
@@ -52,20 +52,20 @@ class GabblerHub extends Actor with ActorLogging {
   var gabblers = Map.empty[String, ActorRef]
 
   def receive = {
-    case getMessages @ GetMessages(name, _) =>
-      log.debug("{} has asked for messages", name)
-      gabblers.getOrElse(name, createGabbler(name)) ! getMessages
-    case message @ Message(name, text) =>
-      log.debug("{} has sent the message '{}'", name, text)
+    case getMessages @ GetMessages(username, _) =>
+      log.debug("{} has asked for messages", username)
+      gabblers.getOrElse(username, createGabbler(username)) ! getMessages
+    case message @ Message(username, text) =>
+      log.debug("{} has sent the message '{}'", username, text)
       gabblers.values foreach (_ ! message)
-    case GabblerAskingToStop(name) =>
-      gabblers(name) ! GabblerConfirmedToStop
-      gabblers -= name
+    case GabblerAskingToStop(username) =>
+      gabblers(username) ! GabblerConfirmedToStop
+      gabblers -= username
   }
 
-  def createGabbler(name: String) = {
-    val gabbler = context.actorOf(Props(new Gabbler(name, gabblerTimeout)))
-    gabblers += name -> gabbler
+  def createGabbler(username: String) = {
+    val gabbler = context.actorOf(Props(new Gabbler(username, gabblerTimeout)))
+    gabblers += username -> gabbler
     gabbler
   }
 }
