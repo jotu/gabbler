@@ -1,7 +1,7 @@
 gabbler
 =======
 
-Welcome to gabbler.
+Simple chat web application demoing Akka, spray, Scala and AngularJS.
 
 Contribution policy
 -------------------
