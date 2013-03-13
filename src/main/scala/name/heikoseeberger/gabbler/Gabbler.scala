@@ -16,50 +16,45 @@
 
 package name.heikoseeberger.gabbler
 
-import akka.actor.{ Actor, ActorLogging, ActorRef, ReceiveTimeout }
+import akka.actor.{ Actor, ActorLogging, ReceiveTimeout }
 import scala.concurrent.duration.Duration
-import spray.http.StatusCodes
-import spray.httpx.SprayJsonSupport
-import spray.routing.RequestContext
 
 class Gabbler(username: String, timeout: Duration) extends Actor with ActorLogging {
 
   import GabblerHub._
-  import SprayJsonSupport._
 
   var messages = List.empty[Message]
 
-  var storedRequestContext: Option[RequestContext] = None
+  var storedCompleter: Option[List[Message] => Unit] = None
 
   context.setReceiveTimeout(timeout)
 
   def receive = {
-    case GetMessages(_, requestContext) =>
-      if (!messages.isEmpty)
-        completeWithMessages(requestContext)
-      else {
+    case DrainMessages(completer) =>
+      if (messages.isEmpty) {
         noContent()
-        storedRequestContext = Some(requestContext)
-      }
+        storedCompleter = Some(completer)
+      } else drainMessages(completer)
+
     case message: Message =>
       messages +:= message
-      storedRequestContext foreach { requestContext =>
-        completeWithMessages(requestContext)
-        storedRequestContext = None
-      }
+      storedCompleter.foreach(drainMessages(_))
+
     case ReceiveTimeout =>
       context.parent ! GabblerAskingToStop(username)
+
     case GabblerConfirmedToStop =>
       context.stop(self)
   }
 
   override def postStop() = noContent()
 
-  def completeWithMessages(requestContext: RequestContext) = {
+  def drainMessages(completer: List[Message] => Unit): Unit = {
     log.debug("Sending {} messages to {}", messages.size, username)
-    requestContext.complete(messages)
+    completer(messages)
+    storedCompleter = None
     messages = Nil
   }
 
-  def noContent() = storedRequestContext foreach (_.complete(StatusCodes.NoContent))
+  def noContent(): Unit = storedCompleter foreach (_(Nil))
 }
