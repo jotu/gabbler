@@ -33,22 +33,20 @@ class GabblerService(gabblerHub: ActorRef) extends Actor with HttpServiceActor {
       path("")(
         getFromResource(s"web/index.html")
       ) ~
-      pathPrefix("api")(
-        pathPrefix("messages")(
-          get(requestContext =>
-            gabblerHub ! GetMessages(user.username, requestContext)
-          ) ~
-          post(
-            entity(as[InboundMessage]) { message => requestContext =>
-              gabblerHub ! Message(user.username, message.text)
-              requestContext.complete(StatusCodes.NoContent)
-            }
-          )
+      pathPrefix("api" / "messages")(
+        get(
+          produce(instanceOf[List[Message]]) { completer => _ =>
+            gabblerHub ! GetMessages(user.username, completer)
+          }
+        ) ~
+        post(
+          entity(as[InboundMessage]) { message =>
+            gabblerHub ! Message(user.username, message.text)
+            complete(StatusCodes.NoContent)
+          }
         )
       ) ~
-      path(Rest)(path =>
-        getFromResource(s"web/$path")
-      )
+      getFromResourceDirectory("web")
     )
   // format: ON
   )

@@ -19,11 +19,10 @@ package name.heikoseeberger.gabbler
 import akka.actor.{ Actor, ActorLogging, ActorRef, Props }
 import scala.concurrent.duration.{ Duration, MILLISECONDS }
 import spray.json.DefaultJsonProtocol
-import spray.routing.RequestContext
 
 object GabblerHub {
 
-  case class GetMessages(username: String, requestContext: RequestContext)
+  case class GetMessages(username: String, completer: List[Message] => Unit)
 
   object InboundMessage extends DefaultJsonProtocol {
     implicit val format = jsonFormat1(apply)
@@ -36,6 +35,8 @@ object GabblerHub {
   }
 
   case class Message(username: String, text: String)
+
+  case class DrainMessages(completer: List[Message] => Unit)
 
   case class GabblerAskingToStop(username: String)
 
@@ -52,9 +53,9 @@ class GabblerHub extends Actor with ActorLogging {
   var gabblers = Map.empty[String, ActorRef]
 
   def receive = {
-    case getMessages @ GetMessages(username, _) =>
+    case GetMessages(username, completer) =>
       log.debug("{} has asked for messages", username)
-      gabblers.getOrElse(username, createGabbler(username)) ! getMessages
+      gabblers.getOrElse(username, createGabbler(username)) ! DrainMessages(completer)
     case message @ Message(username, text) =>
       log.debug("{} has sent the message '{}'", username, text)
       gabblers.values foreach (_ ! message)
