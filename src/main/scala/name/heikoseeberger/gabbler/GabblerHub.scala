@@ -17,7 +17,7 @@
 package name.heikoseeberger.gabbler
 
 import akka.actor.{ Actor, ActorLogging, ActorRef, Props }
-import scala.concurrent.duration.{ Duration, MILLISECONDS }
+import scala.concurrent.duration.{ Duration, FiniteDuration, MILLISECONDS }
 import spray.json.DefaultJsonProtocol
 
 object GabblerHub {
@@ -36,8 +36,6 @@ object GabblerHub {
 
   case class Message(username: String, text: String)
 
-  case class DrainMessages(completer: List[Message] => Unit)
-
   case class GabblerAskingToStop(username: String)
 
   case object GabblerConfirmedToStop
@@ -47,15 +45,16 @@ class GabblerHub extends Actor with ActorLogging {
 
   import GabblerHub._
 
-  val gabblerTimeout =
+  val gabblerTimeout: FiniteDuration =
     Duration(context.system.settings.config getMilliseconds "gabbler.timeout", MILLISECONDS)
 
-  var gabblers = Map.empty[String, ActorRef]
+  var gabblers: Map[String, ActorRef] =
+    Map.empty
 
-  def receive = {
-    case GetMessages(username, completer) =>
+  override def receive: Receive = {
+    case getMessages @ GetMessages(username, completer) =>
       log.debug("{} has asked for messages", username)
-      gabblers.getOrElse(username, createGabbler(username)) ! DrainMessages(completer)
+      gabblers.getOrElse(username, createGabbler(username)) ! getMessages
     case message @ Message(username, text) =>
       log.debug("{} has sent the message '{}'", username, text)
       gabblers.values foreach (_ ! message)
@@ -64,8 +63,8 @@ class GabblerHub extends Actor with ActorLogging {
       gabblers -= username
   }
 
-  def createGabbler(username: String) = {
-    val gabbler = context.actorOf(Props(new Gabbler(username, gabblerTimeout)))
+  def createGabbler(username: String): ActorRef = {
+    val gabbler = context.actorOf(Props(new Gabbler(username, gabblerTimeout)), username)
     gabblers += username -> gabbler
     gabbler
   }

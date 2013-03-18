@@ -23,31 +23,32 @@ class Gabbler(username: String, timeout: Duration) extends Actor with ActorLoggi
 
   import GabblerHub._
 
-  var messages = List.empty[Message]
+  var messages: List[Message] =
+    Nil
 
-  var storedCompleter: Option[List[Message] => Unit] = None
+  var storedCompleter: Option[List[Message] => Unit] =
+    None
 
   context.setReceiveTimeout(timeout)
 
-  def receive = {
-    case DrainMessages(completer) =>
+  override def receive: Receive = {
+    case GetMessages(_, completer) =>
       if (messages.isEmpty) {
         noContent()
         storedCompleter = Some(completer)
-      } else drainMessages(completer)
-
+      } else
+        drainMessages(completer)
     case message: Message =>
       messages +:= message
-      storedCompleter.foreach(drainMessages(_))
-
+      storedCompleter foreach drainMessages
     case ReceiveTimeout =>
       context.parent ! GabblerAskingToStop(username)
-
     case GabblerConfirmedToStop =>
       context.stop(self)
   }
 
-  override def postStop() = noContent()
+  override def postStop(): Unit =
+    noContent()
 
   def drainMessages(completer: List[Message] => Unit): Unit = {
     log.debug("Sending {} messages to {}", messages.size, username)
@@ -56,5 +57,6 @@ class Gabbler(username: String, timeout: Duration) extends Actor with ActorLoggi
     messages = Nil
   }
 
-  def noContent(): Unit = storedCompleter foreach (_(Nil))
+  def noContent(): Unit =
+    storedCompleter foreach (_(Nil))
 }

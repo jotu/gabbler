@@ -46,8 +46,8 @@ object Build extends Build {
     )
 
   object Version {
-    val akka = "2.1.0"
-    val scala = "2.10.1-RC3"
+    val akka = "2.1.2"
+    val scala = "2.10.1"
     val spray = "1.1-M7"
   }
 

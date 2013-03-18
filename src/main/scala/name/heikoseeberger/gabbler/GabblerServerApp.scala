@@ -21,8 +21,8 @@ import spray.can.server.SprayCanHttpServerApp
 
 object GabblerServerApp extends App with SprayCanHttpServerApp {
 
-  val gabblers = system.actorOf(Props(new GabblerHub))
-  val gabblerService = system.actorOf(Props(new GabblerService(gabblers)), "amaze-service")
+  val gabblerHub = system.actorOf(Props(new GabblerHub), "gabbler-hub")
+  val gabblerService = system.actorOf(Props(new GabblerService(gabblerHub)), "gabbler-service")
   newHttpServer(gabblerService) ! Bind(interface = "localhost", port = 8080)
 
   Console.readLine("Hit ENTER to exit ...")

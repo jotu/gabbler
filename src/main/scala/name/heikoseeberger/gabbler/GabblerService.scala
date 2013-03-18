@@ -27,27 +27,28 @@ class GabblerService(gabblerHub: ActorRef) extends Actor with HttpServiceActor {
   import GabblerHub._
   import SprayJsonSupport._
 
-  def receive = runRoute(
-    // format: OFF
-    authenticate(BasicAuth("gabbler"))(user =>
-      path("")(
-        getFromResource(s"web/index.html")
-      ) ~
-      pathPrefix("api" / "messages")(
-        get(
-          produce(instanceOf[List[Message]]) { completer => _ =>
-            gabblerHub ! GetMessages(user.username, completer)
-          }
+  override def receive: Receive =
+    runRoute(
+      // format: OFF
+      authenticate(BasicAuth("gabbler"))(user =>
+        path("")(
+          getFromResource(s"web/index.html")
         ) ~
-        post(
-          entity(as[InboundMessage]) { message =>
-            gabblerHub ! Message(user.username, message.text)
-            complete(StatusCodes.NoContent)
-          }
-        )
-      ) ~
-      getFromResourceDirectory("web")
+        pathPrefix("api" / "messages")(
+          get(
+            produce(instanceOf[List[Message]])(completer => _ =>
+              gabblerHub ! GetMessages(user.username, completer)
+            )
+          ) ~
+          post(
+            entity(as[InboundMessage]) { message =>
+              gabblerHub ! Message(user.username, message.text)
+              complete(StatusCodes.NoContent)
+            }
+          )
+        ) ~
+        getFromResourceDirectory("web")
+      )
+    // format: ON
     )
-  // format: ON
-  )
 }
