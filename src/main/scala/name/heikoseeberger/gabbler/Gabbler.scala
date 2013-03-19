@@ -16,47 +16,63 @@
 
 package name.heikoseeberger.gabbler
 
-import akka.actor.{ Actor, ActorLogging, ReceiveTimeout }
-import scala.concurrent.duration.Duration
+import akka.actor.{ Actor, ActorLogging, Cancellable }
+import scala.concurrent.duration.FiniteDuration
 
-class Gabbler(username: String, timeout: Duration) extends Actor with ActorLogging {
+object Gabbler {
+  case object Timeout
+}
 
+class Gabbler(username: String, timeout: FiniteDuration) extends Actor with ActorLogging {
+
+  import Gabbler._
   import GabblerHub._
 
-  var messages: List[Message] =
-    Nil
+  var messages: List[Message] = Nil
 
-  var storedCompleter: Option[List[Message] => Unit] =
-    None
+  var storedCompleter: Option[List[Message] => Unit] = None
 
-  context.setReceiveTimeout(timeout)
+  var aboutToStop: Boolean = false
+
+  var cancellable: Cancellable = scheduleTimeout()
 
   override def receive: Receive = {
     case GetMessages(_, completer) =>
-      if (messages.isEmpty) {
-        noContent()
+      aboutToStop = false
+      scheduleNewTimeout()
+      if (messages.isEmpty)
         storedCompleter = Some(completer)
-      } else
-        drainMessages(completer)
+      else
+        completeWithMessages(completer)
     case message: Message =>
       messages +:= message
-      storedCompleter foreach drainMessages
-    case ReceiveTimeout =>
-      context.parent ! GabblerAskingToStop(username)
-    case GabblerConfirmedToStop =>
-      context.stop(self)
+      storedCompleter foreach completeWithMessages
+      storedCompleter = None
+    case Timeout =>
+      if (aboutToStop)
+        context.stop(self)
+      else {
+        aboutToStop = true
+        scheduleNewTimeout()
+        completeEmpty()
+        storedCompleter = None
+      }
   }
 
-  override def postStop(): Unit =
-    noContent()
+  def completeEmpty(): Unit =
+    storedCompleter foreach (_(Nil))
 
-  def drainMessages(completer: List[Message] => Unit): Unit = {
+  def completeWithMessages(completer: List[Message] => Unit): Unit = {
     log.debug("Sending {} messages to {}", messages.size, username)
     completer(messages)
-    storedCompleter = None
     messages = Nil
   }
 
-  def noContent(): Unit =
-    storedCompleter foreach (_(Nil))
+  def scheduleNewTimeout(): Unit = {
+    cancellable.cancel()
+    cancellable = scheduleTimeout
+  }
+
+  def scheduleTimeout(): Cancellable =
+    context.system.scheduler.scheduleOnce(timeout, self, Timeout)(context.dispatcher)
 }

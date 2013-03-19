@@ -35,10 +35,6 @@ object GabblerHub {
   }
 
   case class Message(username: String, text: String)
-
-  case class GabblerAskingToStop(username: String)
-
-  case object GabblerConfirmedToStop
 }
 
 class GabblerHub extends Actor with ActorLogging {
@@ -48,24 +44,16 @@ class GabblerHub extends Actor with ActorLogging {
   val gabblerTimeout: FiniteDuration =
     Duration(context.system.settings.config getMilliseconds "gabbler.timeout", MILLISECONDS)
 
-  var gabblers: Map[String, ActorRef] =
-    Map.empty
-
   override def receive: Receive = {
     case getMessages @ GetMessages(username, completer) =>
       log.debug("{} has asked for messages", username)
-      gabblers.getOrElse(username, createGabbler(username)) ! getMessages
+      val gabbler = context.child(username) getOrElse createGabbler(username)
+      gabbler ! getMessages
     case message @ Message(username, text) =>
       log.debug("{} has sent the message '{}'", username, text)
-      gabblers.values foreach (_ ! message)
-    case GabblerAskingToStop(username) =>
-      gabblers(username) ! GabblerConfirmedToStop
-      gabblers -= username
+      context.children foreach (_ ! message)
   }
 
-  def createGabbler(username: String): ActorRef = {
-    val gabbler = context.actorOf(Props(new Gabbler(username, gabblerTimeout)), username)
-    gabblers += username -> gabbler
-    gabbler
-  }
+  def createGabbler(username: String): ActorRef =
+    context.actorOf(Props(new Gabbler(username, gabblerTimeout)), username)
 }
