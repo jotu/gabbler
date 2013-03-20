@@ -5,6 +5,8 @@ Gabbler is a simple chat demo for a modern web application: Single-page client b
 
 The Gabbler server is built on top of Akka actors, non-blocking and asynchronous from top to bottom. Therefore it can easily be scaled up and out. In order to keep things simple and focus on the core message-passing architecture, Basic Authentication and Ajax with long polling are used. This might be revised when spray supports OAuth and WebSocket, but long polling is particularly well suited to showcase the strengths of Akka actors and spray.
 
+Huge thanks to Mathias Doenitz from the spray team for his help and contributions!
+
 Running Gabbler
 ---------------
 
