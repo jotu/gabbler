@@ -16,63 +16,51 @@
 
 package name.heikoseeberger.gabbler
 
-import akka.actor.{ Actor, ActorLogging, Cancellable }
-import scala.concurrent.duration.FiniteDuration
-
-object Gabbler {
-  case object Timeout
-}
+import scala.concurrent.duration.{ Duration, FiniteDuration }
+import akka.actor.{ ReceiveTimeout, Actor, ActorLogging }
 
 class Gabbler(username: String, timeout: FiniteDuration) extends Actor with ActorLogging {
-
-  import Gabbler._
   import GabblerHub._
 
-  var messages: List[Message] = Nil
+  def receive = idling
 
-  var storedCompleter: Option[List[Message] => Unit] = None
-
-  var aboutToStop: Boolean = false
-
-  var cancellable: Cancellable = scheduleTimeout()
-
-  override def receive: Receive = {
+  def idling: Receive = {
     case GetMessages(_, completer) =>
-      aboutToStop = false
-      scheduleNewTimeout()
-      if (messages.isEmpty)
-        storedCompleter = Some(completer)
-      else
-        completeWithMessages(completer)
+      context setReceiveTimeout timeout
+      context become waitingForMessage(completer)
+
     case message: Message =>
-      messages +:= message
-      storedCompleter foreach completeWithMessages
-      storedCompleter = None
-    case Timeout =>
-      if (aboutToStop)
-        context.stop(self)
-      else {
-        aboutToStop = true
-        scheduleNewTimeout()
-        completeEmpty()
-        storedCompleter = None
-      }
+      context setReceiveTimeout Duration.Undefined
+      context become collectingMessages(message :: Nil)
+
+    case ReceiveTimeout =>
+      log.debug("Timeout, shutting down")
+      context stop self
   }
 
-  def completeEmpty(): Unit =
-    storedCompleter foreach (_(Nil))
+  def collectingMessages(messages: List[Message]): Receive = {
+    case GetMessages(_, completer) =>
+      log.debug("Sending {} messages to {}", messages.size, username)
+      completer(messages)
+      context setReceiveTimeout timeout
+      context become idling
 
-  def completeWithMessages(completer: List[Message] => Unit): Unit = {
-    log.debug("Sending {} messages to {}", messages.size, username)
-    completer(messages)
-    messages = Nil
+    case message: Message => context become collectingMessages(message :: messages)
   }
 
-  def scheduleNewTimeout(): Unit = {
-    cancellable.cancel()
-    cancellable = scheduleTimeout
+  def waitingForMessage(completer: List[Message] => Unit): Receive = {
+    case GetMessages(_, newCompleter) =>
+      context become waitingForMessage(newCompleter)
+
+    case message: Message =>
+      log.debug("Sending message to {}", username)
+      completer(message :: Nil)
+      context become idling
+
+    case ReceiveTimeout =>
+      log.debug("Timeout, sending empty message list to {}", username)
+      completer(Nil)
+      context become idling
   }
 
-  def scheduleTimeout(): Cancellable =
-    context.system.scheduler.scheduleOnce(timeout, self, Timeout)(context.dispatcher)
 }
