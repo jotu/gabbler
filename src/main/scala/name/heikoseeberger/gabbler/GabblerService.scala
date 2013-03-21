@@ -30,7 +30,7 @@ class GabblerService(gabblerHub: ActorRef) extends Actor with HttpServiceActor {
   override def receive: Receive =
     runRoute(
       // format: OFF
-      authenticate(BasicAuth("gabbler"))(user =>
+      authenticate(BasicAuth(UsernameEqualsPasswordAuthenticator, "gabbler"))(user =>
         path("")(
           getFromResource(s"web/index.html")
         ) ~

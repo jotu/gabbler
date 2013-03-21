@@ -16,7 +16,7 @@
 
 package name.heikoseeberger.gabbler
 
-import scala.concurrent.duration.{ Duration, FiniteDuration }
+import scala.concurrent.duration.FiniteDuration
 import akka.actor.{ ReceiveTimeout, Actor, ActorLogging }
 
 class Gabbler(username: String, timeout: FiniteDuration) extends Actor with ActorLogging {
