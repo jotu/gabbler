@@ -19,12 +19,23 @@ package name.heikoseeberger.gabbler
 import akka.actor.{ Actor, ActorRef }
 import spray.http.StatusCodes
 import spray.httpx.SprayJsonSupport
+import spray.json.DefaultJsonProtocol
 import spray.routing.HttpServiceActor
 import spray.routing.authentication.BasicAuth
+
+object GabblerService {
+
+  object InboundMessage extends DefaultJsonProtocol {
+    implicit val format = jsonFormat1(apply)
+  }
+
+  case class InboundMessage(text: String)
+}
 
 class GabblerService(gabblerHub: ActorRef) extends Actor with HttpServiceActor {
 
   import GabblerHub._
+  import GabblerService._
   import SprayJsonSupport._
 
   override def receive: Receive =

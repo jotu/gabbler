@@ -16,51 +16,54 @@
 
 package name.heikoseeberger.gabbler
 
+import akka.actor.{ Actor, Cancellable }
 import scala.concurrent.duration.FiniteDuration
-import akka.actor.{ ReceiveTimeout, Actor, ActorLogging }
 
-class Gabbler(username: String, timeout: FiniteDuration) extends Actor with ActorLogging {
+object Gabbler {
+  case object Timeout
+}
 
+class Gabbler(username: String, timeout: FiniteDuration) extends Actor {
+
+  import Gabbler._
   import GabblerHub._
+  import context.dispatcher
 
   def receive: Receive =
-    idling
+    idling(context.system.scheduler.scheduleOnce(timeout, self, Timeout))
 
-  def idling: Receive = {
+  def idling(timeoutTask: Cancellable): Receive = {
     case GetMessages(_, completer) =>
-      setTimeout()
-      context become waitingForMessage(completer)
+      context become waitingForMessage(completer, newTimeout(timeoutTask))
     case message: Message =>
-      context become collectingMessages(message :: Nil)
-    case ReceiveTimeout =>
-      log.debug("Timeout, shutting down")
+      context become collectingMessages(message :: Nil, timeoutTask)
+    case Timeout =>
       context.stop(self)
   }
 
-  def waitingForMessage(completer: List[Message] => Unit): Receive = {
+  def waitingForMessage(completer: Completer, timeoutTask: Cancellable): Receive = {
     case GetMessages(_, newCompleter) =>
-      setTimeout()
-      context become waitingForMessage(newCompleter)
+      context become waitingForMessage(newCompleter, newTimeout(timeoutTask))
     case message: Message =>
-      log.debug("Sending message '{}' to {}", message.text, username)
       completer(message :: Nil)
-      context become idling
-    case ReceiveTimeout =>
-      log.debug("Timeout, sending empty message list to {}", username)
+      context become idling(timeoutTask)
+    case Timeout =>
       completer(Nil)
-      context become idling
+      context become idling(newTimeout(timeoutTask))
   }
 
-  def collectingMessages(messages: List[Message]): Receive = {
+  def collectingMessages(messages: List[Message], timeoutTask: Cancellable): Receive = {
     case GetMessages(_, completer) =>
-      setTimeout()
-      log.debug("Sending messages {} to {}", (messages map (_.text)).mkString("[", ", ", "]"), username)
       completer(messages)
-      context become idling
+      context become idling(newTimeout(timeoutTask))
     case message: Message =>
-      context become collectingMessages(message :: messages)
+      context become collectingMessages(message :: messages, timeoutTask)
+    case Timeout =>
+      context.stop(self)
   }
 
-  def setTimeout(): Unit =
-    context.setReceiveTimeout(timeout)
+  def newTimeout(timeoutTask: Cancellable): Cancellable = {
+    timeoutTask.cancel()
+    context.system.scheduler.scheduleOnce(timeout, self, Timeout)
+  }
 }

@@ -22,7 +22,7 @@ Hit ENTER to exit ...
 
 ```
 
-Open a browser and point it to [localhost:8080/](http://localhost:8080/). You can login with any username given username equals password, e.g. "John" and "John".
+Open a browser and point it to [localhost:8080/](http://localhost:8080/). Use the same value for username and password, e.g. "John" and "John".
 
 Enter a message in the text area on the left, click the "Gabble away" button and watch the message appear on the right.
 
