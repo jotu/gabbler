@@ -16,15 +16,18 @@
 
 package name.heikoseeberger.gabbler
 
-import akka.actor.Props
-import spray.can.server.SprayCanHttpServerApp
+import akka.actor.{ ExtendedActorSystem, Extension, ExtensionId }
+import com.typesafe.config.Config
+import scala.concurrent.duration.{ Duration, FiniteDuration, MILLISECONDS }
 
-object GabblerServerApp extends App with SprayCanHttpServerApp {
+object GabblerSettings extends ExtensionId[GabblerSettings] {
 
-  val gabblerHub = system.actorOf(Props(new GabblerHub(GabblerSettings(system).timeout)), "gabbler-hub")
-  val gabblerService = system.actorOf(Props(new GabblerService(gabblerHub)), "gabbler-service")
-  newHttpServer(gabblerService) ! Bind(interface = "localhost", port = 8080)
+  def createExtension(system: ExtendedActorSystem): GabblerSettings =
+    new GabblerSettings(system.settings.config)
+}
 
-  Console.readLine("Hit ENTER to exit ...")
-  system.shutdown()
+class GabblerSettings(config: Config) extends Extension {
+
+  val timeout: FiniteDuration =
+    Duration(config getMilliseconds "gabbler.timeout", MILLISECONDS)
 }

@@ -33,12 +33,9 @@ object GabblerHub {
   case class Message(username: String, text: String)
 }
 
-class GabblerHub extends Actor {
+class GabblerHub(timeout: FiniteDuration) extends Actor {
 
   import GabblerHub._
-
-  val timeout: FiniteDuration =
-    Duration(context.system.settings.config getMilliseconds "gabbler.timeout", MILLISECONDS)
 
   override def receive: Receive = {
     case getMessages @ GetMessages(username, _) =>
