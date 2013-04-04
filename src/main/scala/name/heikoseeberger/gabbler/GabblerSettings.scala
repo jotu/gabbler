@@ -16,18 +16,13 @@
 
 package name.heikoseeberger.gabbler
 
-import akka.actor.{ ExtendedActorSystem, Extension, ExtensionId }
-import com.typesafe.config.Config
+import akka.actor.{ ExtendedActorSystem, Extension, ExtensionKey }
 import scala.concurrent.duration.{ Duration, FiniteDuration, MILLISECONDS }
 
-object GabblerSettings extends ExtensionId[GabblerSettings] {
+object GabblerSettings extends ExtensionKey[GabblerSettings]
 
-  def createExtension(system: ExtendedActorSystem): GabblerSettings =
-    new GabblerSettings(system.settings.config)
-}
-
-class GabblerSettings(config: Config) extends Extension {
+class GabblerSettings(system: ExtendedActorSystem) extends Extension {
 
   val timeout: FiniteDuration =
-    Duration(config getMilliseconds "gabbler.timeout", MILLISECONDS)
+    Duration(system.settings.config getMilliseconds "gabbler.timeout", MILLISECONDS)
 }
