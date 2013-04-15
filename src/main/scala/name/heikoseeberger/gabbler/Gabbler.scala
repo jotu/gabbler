@@ -30,7 +30,7 @@ class Gabbler(username: String, timeout: FiniteDuration) extends Actor {
   import context.dispatcher
 
   def receive: Receive =
-    idling(context.system.scheduler.scheduleOnce(timeout, self, Timeout))
+    idling(scheduleTimeout())
 
   def idling(timeoutTask: Cancellable): Receive = {
     case GetMessages(_, completer) =>
@@ -64,6 +64,9 @@ class Gabbler(username: String, timeout: FiniteDuration) extends Actor {
 
   def newTimeout(timeoutTask: Cancellable): Cancellable = {
     timeoutTask.cancel()
-    context.system.scheduler.scheduleOnce(timeout, self, Timeout)
+    scheduleTimeout()
   }
+
+  def scheduleTimeout(): Cancellable =
+    context.system.scheduler.scheduleOnce(timeout, self, Timeout)
 }
